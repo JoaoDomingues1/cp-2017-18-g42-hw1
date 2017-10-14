@@ -531,7 +531,9 @@ void get_flags(int argc, char * argv[])
 				{
                     printf("Minimum threads is 1.\n");
                     help(argv[0]);
+                    break;
                 }
+                __cilkrts_set_param("nworkers", optarg);
                 break;
             case 't':
                 // IMPLEMENT THIS OPTION
