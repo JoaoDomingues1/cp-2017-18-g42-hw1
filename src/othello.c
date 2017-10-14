@@ -60,7 +60,7 @@ int anim_mode = 0;
 int board_size = 8;
 int delay = 0;
 int threads = 1;
-int nMinMaxLevels = 22;
+int nMinMaxLevels = 1;
 
 char** gameboard;
 
