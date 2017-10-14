@@ -451,7 +451,7 @@ int make_move(char turn, int depth)
 		int best = INT_MIN;
 		for (int j = 0; j < board_size; j++) {
 			move m;
-            init_move(&m,i,j,turn);
+            init_move(&m,j,i,turn);
             get_move(&m, gameboard);
 			if(m.heuristic > 0)
 			{
