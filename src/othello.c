@@ -47,8 +47,8 @@ typedef struct{
 typedef struct {
 	char** gameboard;
 	int parent_cant_play;
-	int alpha;
-	int beta;
+	cilk_c_reducer_max_int alpha;
+	cilk_c_reducer_max_int beta;
 } state;
 
 struct timespec start, finish;
@@ -60,7 +60,7 @@ int anim_mode = 0;
 int board_size = 8;
 int delay = 0;
 int threads = 1;
-int nMinMaxLevels = 20;
+int nMinMaxLevels = 1;
 
 char** gameboard;
 
@@ -202,8 +202,8 @@ void init_state(state* s, char** board)
 	s->gameboard = build_board();
 	copyBoard(s->gameboard, board);
 	s->parent_cant_play = FALSE;
-	s->alpha = INT_MIN;
-	s->beta = INT_MAX;
+	//s->alpha = INT_MIN;
+	//s->beta = INT_MAX;
 }
 
 //devolve o oponente do jogador indicado
@@ -328,17 +328,20 @@ int minMax(state *prev, move moveT, int depth)
 	{
 		return score(moveT.turn,  current.gameboard);
 	}
-	current.alpha = -prev->beta;
-	current.beta = -prev->alpha;
+	
+	CILK_C_REDUCER_MAX(alpha, int, -REDUCER_VIEW(prev->beta));
+	current.alpha = alpha;
+	CILK_C_REGISTER_REDUCER(current.alpha);
+	
+	CILK_C_REDUCER_MAX(beta, int, -REDUCER_VIEW(prev->alpha));
+	current.beta = beta;
+	CILK_C_REGISTER_REDUCER(current.beta);
+	
 	
 	int cutoff = FALSE;
 
 	CILK_C_REDUCER_MAX(bestscore, int, INT_MIN);
 	CILK_C_REGISTER_REDUCER(bestscore);
-	CILK_C_REDUCER_MAX(alpha, int, current.alpha);
-	CILK_C_REGISTER_REDUCER(alpha);
-	CILK_C_REDUCER_MAX(beta, int, current.beta);
-	CILK_C_REGISTER_REDUCER(beta);
 	
 	void get_score(int child_sc)
 	{
@@ -347,17 +350,16 @@ int minMax(state *prev, move moveT, int depth)
 		if(child_sc > REDUCER_VIEW(bestscore))
 		{
 			CILK_C_REDUCER_MAX_CALC(bestscore, child_sc);
-			if(child_sc > REDUCER_VIEW(alpha))
+			if(child_sc > REDUCER_VIEW(current.alpha))
 			{
-				CILK_C_REDUCER_MAX_CALC(alpha, child_sc);
-				if(child_sc > REDUCER_VIEW(beta))
+				CILK_C_REDUCER_MAX_CALC(current.alpha, child_sc);
+				if(child_sc > REDUCER_VIEW(current.beta))
 				{
-					CILK_C_REDUCER_MAX_CALC(beta, child_sc);
+					CILK_C_REDUCER_MAX_CALC(current.beta, child_sc);
+					cutoff = TRUE;
 				}
 			}
 		}
-		if(REDUCER_VIEW(beta) == child_sc)
-			cutoff = TRUE;
 	}
 	
 	int firstFound = FALSE;
@@ -412,21 +414,29 @@ int make_move(char turn, int depth)
     best_move.heuristic = INT_MIN;
 	state s;
 	init_state(&s, gameboard);
-	int best_score = INT_MIN;
+	//int best_score = INT_MIN;
 	
-	for (int i = 0; i < board_size; i++) {
+	CILK_C_REDUCER_MAX(best_score, int, INT_MIN);
+	CILK_C_REGISTER_REDUCER(best_score);
+	
+	//CILK_C_REDUCER_MAX_INDEX(moveT, move, best_move);
+	//CILK_C_REGISTER_REDUCER(moveT);
+	
+	cilk_for (int i = 0; i < board_size; i++) {
 		for (int j = 0; j < board_size; j++) {
-            init_move(&m,i,j,turn);
+            init_move(&m,j,i,turn);
             get_move(&m, gameboard);
 			if(m.heuristic > 0)
 			{
 				//printf("heuristic: %d\n", m.heuristic);
 				//printf("minMax: %d\n", minMax(&s, m, depth-1));
 				int score = minMax(&s, m, depth-1);
-				if (score > best_score)
+				if (score > REDUCER_VIEW(best_score)/*best_score*/)
 				{
+					//CILK_C_REDUCER_MAX_INDEX_CALC(moveT, m.heuristic, m);
 					best_move = m;
-					best_score = score;
+					CILK_C_REDUCER_MAX_CALC(best_score, score);
+					//best_score = score;
 				}
 			}
 		}
