@@ -1,0 +1,32 @@
+time :0.020395
+score - red:35 blue:65
+time :0.259585
+score - red:199 blue:201
+time :15.557907
+score - red:1238 blue:1262
+time :168.113863
+score - red:3246 blue:2379
+time :0.018340
+score - red:35 blue:65
+time :0.156725
+score - red:199 blue:201
+time :9.117503
+score - red:1238 blue:1262
+time :92.500251
+score - red:3246 blue:2379
+time :0.020611
+score - red:35 blue:65
+time :0.185472
+score - red:199 blue:201
+time :6.021791
+score - red:1238 blue:1262
+time :72.631990
+score - red:3246 blue:2379
+time :0.028232
+score - red:35 blue:65
+time :0.150880
+score - red:199 blue:201
+time :5.594231
+score - red:1238 blue:1262
+time :57.306407
+score - red:3246 blue:2379
