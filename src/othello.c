@@ -14,6 +14,7 @@
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
 #include <limits.h>
+#include <cilk/reducer_max.h>
 
 #define RED     "\x1B[31m"
 #define BLU     "\x1B[34m"
@@ -321,36 +322,43 @@ void get_move(move* m, char** board) {
 int minMax(state *prev, move moveT, int depth)
 {
 	state current;
-	int bestscore = INT_MIN;
-	int cutoff = FALSE;
-	
-	void get_score(int child_sc)
-	{
-		child_sc = -child_sc;
-		if(child_sc > bestscore)
-		{
-			bestscore = child_sc;
-			if(child_sc > current.alpha)
-			{
-				current.alpha = child_sc;
-				if(child_sc >= current.beta)
-				{
-					cutoff = TRUE;
-				}
-			}
-		}
-	}
-	
 	init_state(&current, prev->gameboard);
 	flip_board(&moveT, current.gameboard);
-	
 	if(depth <= 0)
 	{
 		return score(moveT.turn,  current.gameboard);
 	}
-	
 	current.alpha = -prev->beta;
 	current.beta = -prev->alpha;
+	
+	int cutoff = FALSE;
+
+	CILK_C_REDUCER_MAX(bestscore, int, INT_MIN);
+	CILK_C_REGISTER_REDUCER(bestscore);
+	CILK_C_REDUCER_MAX(alpha, int, current.alpha);
+	CILK_C_REGISTER_REDUCER(alpha);
+	CILK_C_REDUCER_MAX(beta, int, current.beta);
+	CILK_C_REGISTER_REDUCER(beta);
+	
+	void get_score(int child_sc)
+	{
+		child_sc = -child_sc;
+		
+		if(child_sc > REDUCER_VIEW(bestscore))
+		{
+			CILK_C_REDUCER_MAX_CALC(bestscore, child_sc);
+			if(child_sc > REDUCER_VIEW(alpha))
+			{
+				CILK_C_REDUCER_MAX_CALC(alpha, child_sc);
+				if(child_sc > REDUCER_VIEW(beta))
+				{
+					CILK_C_REDUCER_MAX_CALC(beta, child_sc);
+				}
+			}
+		}
+		if(REDUCER_VIEW(beta) == child_sc)
+			cutoff = TRUE;
+	}
 	
 	int firstFound = FALSE;
 	move m;
@@ -373,7 +381,7 @@ int minMax(state *prev, move moveT, int depth)
 		}
 	}
 	cilk_sync;
-	if(bestscore == INT_MIN)
+	if(bestscore.value == INT_MIN)
 	{
 		if(prev->parent_cant_play)
 		{
@@ -395,7 +403,7 @@ int minMax(state *prev, move moveT, int depth)
 		current.parent_cant_play = FALSE;
 	}
 	free_gameboard(current.gameboard);
-	return bestscore;
+	return bestscore.value;
 }
 
 int make_move(char turn, int depth)
